@@ -1,0 +1,36 @@
+li.dir span {
+    color: #59AFCC;
+}
+
+li.dir ul {
+    background: none repeat scroll 0 0 #333333;
+    border-bottom-left-radius: 5px;
+    border-bottom-right-radius: 5px;
+    border-top: 1px solid #262626;
+}
+
+li.dir ul {
+    clear: both;
+    display: block;
+    float: none;
+    position: absolute;
+    width: 221px;
+    z-index: 1000;
+}
+
+li.dir ul li {
+    border-bottom: 1px solid #292929;
+    border-top: 1px solid #404040;
+}
+
+li.dir ul li {
+    clear: both;
+    float: none !important;
+}
+li.dir ul li:last-child {
+    border-bottom: 0 none;
+}
+
+li.dir ul li a {
+    display: block;
+}

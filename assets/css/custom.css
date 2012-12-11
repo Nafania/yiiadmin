@@ -1,0 +1,11 @@
+span.required {
+	color: #BF3030;
+}
+
+.tools a.icon {
+	color: transparent !important;
+}
+
+.error {
+	border-color: #BF3030;
+}
