@@ -2,91 +2,121 @@
 
 /* Manage Selected Rows Widget */
 
-class manageSelected extends CWidget
-{
+class manageSelected extends CWidget {
 	// Controller ID
-	public $controller;
+
 
 	// CGridView ID
 	public $gridId;
 
-        public $params = array();
+	public $params = array();
 
-	// Buttons
-	public $buttons = array('delete','publish','unpublish');
+	public $model;
 
-	public function run()
-	{
+	public $buttons = array();
+
+	public $path = '';
+
+	private $ids = array();
+
+	public function run () {
 		parent::run();
-		$baseDir = dirname(__FILE__);
 
-		$btns = array();
+		$this->path .= '/' . Yii::app()->getController()->getId() . '/';
 
-		if(in_array('delete', $this->buttons))
-			$btns['delete_btn'] = true;
+		$this->_getButtons();
 
-		if(array_search('publish', $this->buttons))
-			$btns['publish_btn'] = true;
+		$this->ids['deleteSelected'] = Yii::t('Site', 'Are you sure you want to delete selected items?');
 
-		if(array_search('unpublish', $this->buttons))
-			$btns['unpublish_btn'] = true;
+		$this->buttons[] = array(
+			'url' => Yii::app()->createUrl( $this->path . 'deleteSelected' ),
+			'title' => Yii::t('Site', 'Delete selected'),
+			'class' => 'deleteSelected'
+		);
 
-		$this->render('widget',array('controller'=>$this->controller,'buttons'=>$btns));
+		$this->registerClientScript();
+
+		$this->render( 'widget' );
 	}
-	
-	public function init()
-	{
-		 parent::init();
 
-		 $this->registerClientScript();
+	private function _getButtons () {
+
+		$gridConfig = $this->model->adminSearch();
+		foreach ( $gridConfig['columns'] AS $column ) {
+			if ( isset( $column['class'] ) && isset( $column['name'] ) && $column['class'] == 'DToggleColumn' ) {
+				list($images, $titles) = Yii::app()->getModule( 'yiiadmin' )->getToggleImages( $this->model, $column['name'] );
+
+				foreach ( $images AS $key => $val ) {
+					$this->buttons[] = array(
+						'url' => Yii::app()->createUrl( $this->path . 'toggle', array( 'attribute' => $column['name'], 'val' => $key ) ),
+						'title' => $titles[$key],
+						'class' => $column['name']
+					);
+
+					if ( !empty($column['confirmation']) ) {
+						$this->ids[$column['name']] = $column['confirmation'];
+					}
+					else {
+						$this->ids[$column['name']] = Yii::t('Site', 'Are you sure?');
+					}
+				}
+			}
+		}
 	}
-	
-    protected function registerClientScript()
-    {
-	    $params = '';
-        if(Yii::app()->request->enableCsrfValidation) {
+
+	protected function registerClientScript () {
+		$params = '';
+		if ( Yii::app()->request->enableCsrfValidation ) {
 			$this->params[Yii::app()->getRequest()->csrfTokenName] = Yii::app()->getRequest()->getCsrfToken();
 		}
-        if ( $this->params ) {
-            foreach ( $this->params AS $key => $val ) {
-                $params .= ', ' . $key . ': \'' . $val . '\'';
-            }
-        }
-$js = <<<JAVASCRIPT
-function manageSelected(item) {
-	var id = '{$this->gridId}';
-    var settings = $.fn.yiiGridView.settings[id];
-    var keys = $('#'+id+' > div.keys > span');
-    var selectedItems = [];
-    $('#'+id+' .'+settings.tableClass+' > tbody > tr').each(function(i){
-        if($(this).hasClass('selected')) {
-            selectedItems.push(keys.eq(i).text());
-        }
-	});
-	//$.fn.yiiGridView.getSelection dont working
-	var requestUrl  = item.attr('href') + '/?';
+		if ( $this->params ) {
+			foreach ( $this->params AS $key => $val ) {
+				$params .= ', ' . $key . ': \'' . $val . '\'';
+			}
+		}
+		$ids = '';
+		$titles = array();
+		foreach ( $this->ids AS $id => $title ) {
+			$ids .= ( $ids ? ',' : '' ) . 'a.' . $id . '-link';
+			$titles[$id . '-link'] = $title;
+		}
+		$modelName = get_class($this->model);
+		$titles = CJavaScript::encode($titles);
 
-	$.fn.yiiGridView.update(id, {
-		type:'POST',
-        data:({selectedItems: selectedItems$params }),
-		url:requestUrl,
-		success:function() {
-			$.fn.yiiGridView.update(id);
-		},
-	});
-}
-jQuery("[id='deleteSelected']").live('click', function(e) {
+		$js = <<<JAVASCRIPT
+var id = '{$this->gridId}';
+jQuery(document).on('click','$ids',function(e) {
+	var titles = $titles;
+	var aClass = $(this).attr('class').split(' ')[0];
 	e.preventDefault();
-	if(confirm('Are you sure you want to delete selected items?')) manageSelected($(this));
+	if( confirm(titles[aClass]) ) {
+	    var selectedItems = $.fn.yiiGridView.getSelection(id);
+	    var requestUrl  = $(this).attr('href') + '/?';
+
+	    $.fn.yiiGridView.update(id, {
+		    type:'POST',
+            data:({model_name: "$modelName", pk: selectedItems$params }),
+		    url:requestUrl,
+		    success:function() {
+			    $.fn.yiiGridView.update(id);
+		    },
+	    });
+	}
 });
-jQuery('a.selectAll').live('click',function(){jQuery('#' + id + ' tbody > tr').addClass('selected');});
-jQuery('a.selectNone').live('click',function(){jQuery('#' + id + ' tbody > tr').removeClass('selected');});
+$('a.selectAll').on('click', function(){
+        $('#' + id + ' tbody > tr').addClass('selected');
+    }
+);
+$('a.selectNone').on('click',function() {
+        $('#' + id + ' tbody > tr').removeClass('selected');
+    }
+);
 JAVASCRIPT;
 
 		$cs = Yii::app()->getClientScript();
 
-		$cs->registerScript(__CLASS__.'#'.$this->id,$js);
-    }
+		$cs->registerScript( __CLASS__ . '#' . $this->id, $js );
+	}
 }
 
 ?>

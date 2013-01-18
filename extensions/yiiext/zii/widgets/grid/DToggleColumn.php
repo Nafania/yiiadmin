@@ -4,10 +4,9 @@
  * @link http://www.elisdn.ru
  */
 
-Yii::import('zii.widgets.grid.CGridColumn');
+Yii::import( 'zii.widgets.grid.CGridColumn' );
 
-class DToggleColumn extends CGridColumn
-{
+class DToggleColumn extends CGridColumn {
 	/**
 	 * @var string the attribute name of the data model.
 	 */
@@ -23,7 +22,7 @@ class DToggleColumn extends CGridColumn
 	/**
 	 * @var array captions for 'alt' and 'title' attributes of icon.
 	 */
-	public $titles = array(1=>'Active', 0=>'Not active');
+	public $titles;
 	/**
 	 * @var array icon address.
 	 */
@@ -53,97 +52,104 @@ class DToggleColumn extends CGridColumn
 	/**
 	 * @throws CException
 	 */
-	public function init()
-	{
+	public function init () {
 		parent::init();
 
-		if (empty($this->name))
-			$this->sortable=false;
+		if ( empty( $this->name ) ) {
+			$this->sortable = false;
+		}
 
-		if (empty($this->name) && empty($this->value))
-			throw new CException('Either "name" or "value" must be specified for DToggleColumn.');
+		if ( empty( $this->name ) && empty( $this->value ) ) {
+			throw new CException( 'Either "name" or "value" must be specified for DToggleColumn.' );
+		}
 
-		if (!empty($this->linkUrl))
-			$this->registerClientScript();
+		list($this->images, $this->titles) = Yii::app()->getModule( 'yiiadmin' )->getToggleImages( $this->grid->dataProvider->data[0], $this->name );
+
+		$this->class = 'toggle_' . preg_replace( '/\./', '_', $this->name );
+		$this->registerClientScript();
 	}
 
 	/**
 	 * Renders the filter cell content.
 	 */
-	protected function renderFilterCellContent()
-	{
-		if(is_string($this->filter))
+	protected function renderFilterCellContent () {
+		if ( is_string( $this->filter ) ) {
 			echo $this->filter;
-		else if($this->filter!==false && $this->grid->filter!==null && $this->name!==null && strpos($this->name,'.')===false)
-		{
-			if(is_array($this->filter))
-				echo CHtml::activeDropDownList($this->grid->filter, $this->name, $this->filter, array('id'=>false,'prompt'=>''));
-			else if($this->filter===null)
-				echo CHtml::activeTextField($this->grid->filter, $this->name, array('id'=>false));
 		}
-		else
+		else if ( $this->filter !== false && $this->grid->filter !== null && $this->name !== null && strpos( $this->name, '.' ) === false ) {
+			if ( is_array( $this->filter ) ) {
+				echo CHtml::activeDropDownList( $this->grid->filter, $this->name, $this->filter, array( 'id' => false, 'prompt' => '' ) );
+			}
+			else if ( $this->filter === null ) {
+				echo CHtml::activeTextField( $this->grid->filter, $this->name, array( 'id' => false ) );
+			}
+		}
+		else {
 			parent::renderFilterCellContent();
+		}
 	}
 
 	/**
 	 * Renders the header cell content.
 	 * This method will render a link that can trigger the sorting if the column is sortable.
 	 */
-	protected function renderHeaderCellContent()
-	{
-		if($this->grid->enableSorting && $this->sortable && $this->name!==null)
-			echo $this->grid->dataProvider->getSort()->link($this->name,$this->header,array('class'=>'sort-link'));
-		else if($this->name!==null && $this->header===null)
-		{
-			if($this->grid->dataProvider instanceof CActiveDataProvider)
-				echo CHtml::encode($this->grid->dataProvider->model->getAttributeLabel($this->name));
-			else
-				echo CHtml::encode($this->name);
+	protected function renderHeaderCellContent () {
+		if ( $this->grid->enableSorting && $this->sortable && $this->name !== null ) {
+			echo $this->grid->dataProvider->getSort()->link( $this->name, $this->header, array( 'class' => 'sort-link' ) );
 		}
-		else
+		else if ( $this->name !== null && $this->header === null ) {
+			if ( $this->grid->dataProvider instanceof CActiveDataProvider ) {
+				echo CHtml::encode( $this->grid->dataProvider->model->getAttributeLabel( $this->name ) );
+			}
+			else {
+				echo CHtml::encode( $this->name );
+			}
+		}
+		else {
 			parent::renderHeaderCellContent();
+		}
 	}
 
 	/**
 	 * Registers the client scripts for the column.
 	 */
-	protected function registerClientScript()
-	{
-		if(is_string($this->confirmation))
-			$confirmation = "if(!confirm(".CJavaScript::encode($this->confirmation).")) return false;";
-		else
+	protected function registerClientScript () {
+		if ( is_string( $this->confirmation ) ) {
+			$confirmation = "if(!confirm(" . CJavaScript::encode( $this->confirmation ) . ")) return false;";
+		}
+		else {
 			$confirmation = '';
+		}
 
-		if(Yii::app()->request->enableCsrfValidation){
+		if ( Yii::app()->request->enableCsrfValidation ) {
 			$csrfTokenName = Yii::app()->request->csrfTokenName;
 			$csrfToken = Yii::app()->request->csrfToken;
-			$csrf = "\n\t\tdata:{ '$csrfTokenName':'$csrfToken' },";
-		} else
+			$csrf = " ,'$csrfTokenName':'$csrfToken'";
+		}
+		else {
 			$csrf = '';
-
-		$this->class = 'toggle_' . preg_replace('/\./', '_', $this->name);
+		}
 
 		$js = "
-$(document).on('click','#{$this->grid->id} a.{$this->class}', function(){
+jQuery(document).on('click','#{$this->grid->id} a.{$this->class}', function(){
 	$confirmation
-	var th=this;
-	$.fn.yiiGridView.update('{$this->grid->id}', {
-		type:'POST',
-		url:$(this).attr('href'),$csrf
+	var link = $(this);
+	$.ajax({
+	    url: '" . Yii::app()->createUrl( 'yiiadmin/manageModel/toggle' ) . "',
+	    type: 'POST',
+	    data: {attribute: '" . $this->name . "', pk: $(this).data('pk'), model_name: $(this).data('model')$csrf},
+	    dataType: 'json',
 		success:function(data) {
-			$.fn.yiiGridView.update('{$this->grid->id}');
-			afterAjaxUpdate(th,true,data);
-		},
-		error:function(XHR) {
-			afterAjaxUpdate(th,false,XHR);
+			link.children('img').attr('src', data.data.image);
+			link.children('img').attr('title', data.data.imageTitle);
+			link.children('img').attr('alt', data.data.imageTitle);
 		}
 	});
 	return false;
-});
-		";
+});	";
 
-		$script = CJavaScript::encode(new CJavaScriptExpression($js));
-		Yii::app()->clientScript->registerScript(__CLASS__.'#'.$this->id, $script);
+		$script = CJavaScript::encode( new CJavaScriptExpression( $js ) );
+		Yii::app()->clientScript->registerScript( __CLASS__ . '#' . $this->id, $script );
 	}
 
 	/**
@@ -151,20 +157,18 @@ $(document).on('click','#{$this->grid->id} a.{$this->class}', function(){
 	 * @param integer $row the row number (zero-based)
 	 * @param mixed $data the data associated with the row
 	 */
-	protected function renderDataCellContent($row,$data)
-	{
-		if(!empty($this->value))
-			$value = $this->evaluateExpression($this->value,array('data'=>$data,'row'=>$row));
-		elseif(!empty($this->name))
-			$value = CHtml::value($data, $this->name);
+	protected function renderDataCellContent ( $row, $data ) {
+		if ( !empty( $this->value ) ) {
+			$value = $this->evaluateExpression( $this->value, array( 'data' => $data, 'row' => $row ) );
+		}
+		elseif ( !empty( $this->name ) ) {
+			$value = CHtml::value( $data, $this->name );
+		}
 
-		$url = Yii::app()->createUrl('yiiadmin/manageModel/toggle', array('model_name' => get_class($data),'pk' => $data->primaryKey, 'attribute' => $this->name));
+		$src = $value ? $this->images[1] : $this->images[0];
+		$title = $this->titles[(int) $value];
 
-		$src = $value ?  $this->images[0] : $this->images[1];
-		$title = $this->titles[(int)$value];
-		//$iconStyle = 'width:' . $this->imageSize . 'px; height:' . $this->imageSize . 'px;';
-		//$image = CHtml::image($src, $title, array('title'=>$title, 'style'=>$iconStyle));
-		$image = CHtml::image($src, $title, array('title'=>$title));
-		echo CHtml::ajaxLink($image, $url, array('context'=>'js:this', 'success' => 'function(data){$(this).children("img").attr("src", data.image)}'));
+		$image = CHtml::image( $src, $title, array( 'title' => $title ) );
+		echo CHtml::link( $image, '#', array( 'class' => $this->class, 'data-pk' => $data->primaryKey, 'data-model' => get_class( $data ) ) );
 	}
 }
